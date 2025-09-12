@@ -1,15 +1,15 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include "UartBackend.h"
+#include "SerialManager.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
-    UartBackend backend;
+    SerialManager serialManager;
 
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("serialManager", &serialManager);
 
 
     QObject::connect(
