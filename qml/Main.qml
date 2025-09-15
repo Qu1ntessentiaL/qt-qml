@@ -40,6 +40,28 @@ ApplicationWindow {
             text: serialManager.receivedData
         }
 
+        TextField {
+            id: addressField
+            width: 120
+            placeholderText: "Slave address"
+
+            validator: RegularExpressionValidator { regularExpression: /0x[0-9A-Fa-f]{0,2}/ }
+
+            inputMethodHints: Qt.ImhPreferUppercase | Qt.ImhHexadecimal
+
+            onActiveFocusChanged: {
+                if (activeFocus && text === "")
+                    text = "0x"
+            }
+
+            onTextChanged: {
+                if (!text.startsWith("0x")) {
+                    text = "0x"
+                    addressField.cursorPosition = text.length
+                }
+            }
+        }
+
         Row {
             spacing: 5
             TextField {

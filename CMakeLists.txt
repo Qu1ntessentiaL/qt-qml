@@ -4,20 +4,34 @@ project(qt-qml VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Quick SerialPort)
+set(CMAKE_PREFIX_PATH "C:/Qt/6.9.2/msvc2022_64")
 
-qt_standard_project_setup(REQUIRES 6.5)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Quick SerialPort)
+
+qt_standard_project_setup(REQUIRES 6.9)
 
 qt_add_executable(appqt-qml
-        main.cpp
-        SerialManager.cpp
+        src/main.cpp
+        src/SerialManager.cpp
 )
 
 qt_add_qml_module(appqt-qml
         URI qt-qml
         VERSION 1.0
         QML_FILES
-        Main.qml
+        qml/Main.qml
+)
+
+include_directories(
+        ${CMAKE_SOURCE_DIR}/src/
+        ${CMAKE_SOURCE_DIR}/src/ft4222
+        ${CMAKE_SOURCE_DIR}/libs/ftd2xx/
+        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/inc/
+)
+
+link_directories(
+        ${CMAKE_SOURCE_DIR}/libs/ftd2xx/amd64/
+        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/dll/amd64/
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -34,6 +48,8 @@ set_target_properties(appqt-qml PROPERTIES
 target_link_libraries(appqt-qml PRIVATE
         Qt6::Quick
         Qt6::SerialPort
+        ${CMAKE_SOURCE_DIR}/libs/ftd2xx/amd64/ftd2xx.lib
+        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/lib/vs2013/amd64/LibFT4222-64.lib
 )
 
 include(GNUInstallDirs)
@@ -41,4 +57,24 @@ install(TARGETS appqt-qml
         BUNDLE DESTINATION .
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+set(QT_DEPLOY_TOOL "C:/Qt/6.9.2/msvc2022_64/bin/windeployqt.exe")
+
+add_custom_command(TARGET appqt-qml POST_BUILD
+        COMMAND ${QT_DEPLOY_TOOL} --no-translations --qmldir ${CMAKE_SOURCE_DIR}/qml
+        $<TARGET_FILE:appqt-qml>
+        COMMENT "Running windeployqt..."
+)
+
+
+add_custom_command(TARGET appqt-qml POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/libs/ftd2xx/amd64/ftd2xx64.dll
+        $<TARGET_FILE_DIR:appqt-qml>
+)
+add_custom_command(TARGET appqt-qml POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/dll/amd64/LibFT4222-64.dll
+        $<TARGET_FILE_DIR:appqt-qml>
 )

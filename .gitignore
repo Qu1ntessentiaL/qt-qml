@@ -3,7 +3,7 @@
 
 .idea
 build
-cmake-build-debug
+cmake-build-*
 
 *~
 *.autosave
@@ -76,3 +76,4 @@ CMakeLists.txt.user*
 *.dll
 *.exe
 
+!libs/**/*.dll
