@@ -1,8 +1,8 @@
-#include "ft4222.hpp"
+#include "ft4222.h"
 
 using namespace std;
 
-ft4222::ft4222(FT4222_ClockRate clock) : m_version{0, 0}, m_clock(clock) {
+Ft4222::Ft4222(FT4222_ClockRate clock) : m_version{0, 0}, m_clock(clock) {
     m_devCnt = listFtDevices();
     if (m_devCnt > 0) {
         setClock(m_clock);
@@ -11,7 +11,7 @@ ft4222::ft4222(FT4222_ClockRate clock) : m_version{0, 0}, m_clock(clock) {
     }
 }
 
-ft4222::~ft4222() {
+Ft4222::~Ft4222() {
     if (!m_devices.empty()) {
         FT_HANDLE ftHandle = m_devices.front().info.ftHandle;
         bool *isInit = &m_devices.front().isInitialized;
@@ -22,7 +22,7 @@ ft4222::~ft4222() {
     }
 }
 
-DWORD ft4222::listFtDevices() {
+DWORD Ft4222::listFtDevices() {
     FT_STATUS ftStatus;
     DWORD numDevices = 0;
 
@@ -68,21 +68,21 @@ DWORD ft4222::listFtDevices() {
     return numDevices;
 }
 
-FT4222_STATUS ft4222::setClock(FT4222_ClockRate clock) {
+FT4222_STATUS Ft4222::setClock(FT4222_ClockRate clock) {
     if (m_devices.empty()) {
         throw std::runtime_error("No devices available!");
     }
     return FT4222_SetClock(m_devices.front().info.ftHandle, clock);
 }
 
-FT4222_STATUS ft4222::getClock() {
+FT4222_STATUS Ft4222::getClock() {
     if (m_devices.empty()) {
         throw std::runtime_error("No devices available!");
     }
     return FT4222_GetClock(m_devices.front().info.ftHandle, &m_clock);
 }
 
-void ft4222::checkStatus(FT_STATUS status, const std::string &errorMessage) {
+void Ft4222::checkStatus(FT_STATUS status, const std::string &errorMessage) {
     if (status != FT_OK) {
         std::string errorDetail = "Error code: " + std::to_string(status) + ". ";
 
@@ -155,7 +155,7 @@ void ft4222::checkStatus(FT_STATUS status, const std::string &errorMessage) {
     }
 }
 
-void ft4222::checkStatus(FT4222_STATUS status, const std::string &errorMessage) {
+void Ft4222::checkStatus(FT4222_STATUS status, const std::string &errorMessage) {
     if (status != FT4222_OK) {
         std::string errorDetail = "Error code: " + std::to_string(status) + ". ";
 
@@ -228,7 +228,7 @@ void ft4222::checkStatus(FT4222_STATUS status, const std::string &errorMessage) 
     }
 }
 
-void ft4222::i2cMasterInit(uint32_t clockRate) {
+void Ft4222::i2cMasterInit(uint32_t clockRate) {
     if (m_devices.empty()) {
         throw std::runtime_error("No devices available!");
     }
@@ -268,7 +268,7 @@ void ft4222::i2cMasterInit(uint32_t clockRate) {
     *isInit = true;
 }
 
-FT4222_STATUS ft4222::i2cMemWrite(uint16_t devAddress, uint16_t memAddress, const uint8_t *pData, uint16_t size) {
+FT4222_STATUS Ft4222::i2cMemWrite(uint16_t devAddress, uint16_t memAddress, const uint8_t *pData, uint16_t size) {
     if (m_devices.empty()) {
         return FT4222_DEVICE_NOT_FOUND;
     }
@@ -298,7 +298,7 @@ FT4222_STATUS ft4222::i2cMemWrite(uint16_t devAddress, uint16_t memAddress, cons
     return ftStatus;
 }
 
-FT4222_STATUS ft4222::i2cMemRead(uint16_t devAddress, uint16_t memAddress, uint8_t *pData, uint16_t size) {
+FT4222_STATUS Ft4222::i2cMemRead(uint16_t devAddress, uint16_t memAddress, uint8_t *pData, uint16_t size) {
     if (m_devices.empty()) {
         return FT4222_DEVICE_NOT_FOUND;
     }

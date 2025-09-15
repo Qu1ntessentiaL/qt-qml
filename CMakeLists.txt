@@ -10,9 +10,15 @@ find_package(Qt6 6.9 REQUIRED COMPONENTS Quick SerialPort)
 
 qt_standard_project_setup(REQUIRES 6.9)
 
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
 qt_add_executable(appqt-qml
         src/main.cpp
         src/SerialManager.cpp
+        src/ft4222/ft4222.cpp
+        src/ft4222/ft4222_wrapper.cpp
 )
 
 qt_add_qml_module(appqt-qml
@@ -49,7 +55,7 @@ target_link_libraries(appqt-qml PRIVATE
         Qt6::Quick
         Qt6::SerialPort
         ${CMAKE_SOURCE_DIR}/libs/ftd2xx/amd64/ftd2xx.lib
-        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/lib/vs2013/amd64/LibFT4222-64.lib
+        ${CMAKE_SOURCE_DIR}/libs/LibFT4222/dll/amd64/LibFT4222-64.lib
 )
 
 include(GNUInstallDirs)

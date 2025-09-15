@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import MyLib 1.0
 
 ApplicationWindow {
     visible: true
@@ -7,28 +8,32 @@ ApplicationWindow {
     height: 480
     title: "COM-port demo"
 
+    SerialManager {
+        id: serial
+    }
+
     Column {
         anchors.centerIn: parent
         spacing: 10
 
         ComboBox {
             id: portSelector
-            model: serialManager.ports
-            onCurrentTextChanged: serialManager.portName = currentText
+            model: serial.ports
+            onCurrentTextChanged: serial.portName = currentText
         }
 
         Button {
             id: openButton
-            text: serialManager.isOpen ? "Port Open" : "Open Port"
+            text: serial.isOpen ? "Port Open" : "Open Port"
             background: Rectangle {
-                color: serialManager.isOpen ? "green" : "red"
+                color: serial.isOpen ? "green" : "red"
                 radius: 6
             }
             onClicked: {
-                if (serialManager.isOpen)
-                    serialManager.closePort()
+                if (serial.isOpen)
+                    serial.closePort()
                 else
-                    serialManager.openPort()
+                    serial.openPort()
             }
         }
 
@@ -37,7 +42,7 @@ ApplicationWindow {
             width: 350
             height: 150
             readOnly: true
-            text: serialManager.receivedData
+            text: serial.receivedData
         }
 
         TextField {
@@ -45,7 +50,9 @@ ApplicationWindow {
             width: 120
             placeholderText: "Slave address"
 
-            validator: RegularExpressionValidator { regularExpression: /0x[0-9A-Fa-f]{0,2}/ }
+            validator: RegularExpressionValidator {
+                regularExpression: /0x[0-9A-Fa-f]{0,2}/
+            }
 
             inputMethodHints: Qt.ImhPreferUppercase | Qt.ImhHexadecimal
 
@@ -71,13 +78,13 @@ ApplicationWindow {
             }
             Button {
                 text: "Send"
-                onClicked: serialManager.sendData(inputField.text)
+                onClicked: serial.sendData(inputField.text)
             }
         }
     }
 
     Connections {
-        target: serialManager
+        target: serial
         onErrorOccurred: console.log("Serial Error: " + msg)
     }
 }

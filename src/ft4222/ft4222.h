@@ -1,5 +1,4 @@
-#ifndef FTD2XX_CXX_H
-#define FTD2XX_CXX_H
+#pragma once
 
 #include <windows.h>
 
@@ -17,7 +16,7 @@
 #include "ftd2xx.h"
 #include "LibFT4222.h"
 
-class ft4222 {
+class Ft4222 {
     typedef struct ft_device {
         FT_DEVICE_LIST_INFO_NODE info;
         bool isInitialized;
@@ -35,9 +34,9 @@ class ft4222 {
     }
 
 public:
-    explicit ft4222(FT4222_ClockRate clock = SYS_CLK_60);
+    explicit Ft4222(FT4222_ClockRate clock = SYS_CLK_60);
 
-    ~ft4222();
+    ~Ft4222();
 
     DWORD listFtDevices();
 
@@ -45,13 +44,11 @@ public:
 
     FT4222_STATUS getClock();
 
-    void checkStatus(FT_STATUS status, const std::string &errorMessage);
+    static void checkStatus(FT_STATUS status, const std::string &errorMessage);
 
-    void checkStatus(FT4222_STATUS status, const std::string &errorMessage);
+    static void checkStatus(FT4222_STATUS status, const std::string &errorMessage);
 
     void i2cMasterInit(uint32_t clockRate = 100);
-
-    uint8_t BusScan(uint8_t *addr_array_ptr, bool print_flag);
 
     FT4222_STATUS
     i2cMemWrite(uint16_t devAddress, uint16_t memAddress, const uint8_t *pData, uint16_t size);
@@ -59,5 +56,3 @@ public:
     FT4222_STATUS
     i2cMemRead(uint16_t devAddress, uint16_t memAddress, uint8_t *pData, uint16_t size);
 };
-
-#endif // FTD2XX_CXX_H

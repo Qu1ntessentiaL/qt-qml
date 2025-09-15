@@ -1,4 +1,3 @@
-#include <QDebug>
 #include "SerialManager.h"
 
 SerialManager::SerialManager(QObject *parent) : QObject(parent) {

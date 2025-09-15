@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QDebug>
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QByteArray>
