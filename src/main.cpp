@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
 
     // Регистрируем классы как QML-типы
     qmlRegisterType<SerialManager>("MyLib", 1, 0, "SerialManager");
-    qmlRegisterType<Ft4222Wrapper>("MyLib", 1, 0, "Ft4222");
+    qmlRegisterType<Ft4222Wrapper>("MyLib", 1, 0, "Ft4222Wrapper");
 
     QQmlApplicationEngine engine;
 

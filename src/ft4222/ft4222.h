@@ -17,11 +17,12 @@
 #include "LibFT4222.h"
 
 class Ft4222 {
+public:
     typedef struct ft_device {
         FT_DEVICE_LIST_INFO_NODE info;
         bool isInitialized;
     } ft_device_t;
-    std::vector<ft_device> m_devices;
+private:
     DWORD m_devCnt;
     FT4222_Version m_version;
     FT4222_ClockRate m_clock;
@@ -34,6 +35,8 @@ class Ft4222 {
     }
 
 public:
+    std::vector<ft_device> m_devices;
+
     explicit Ft4222(FT4222_ClockRate clock = SYS_CLK_60);
 
     ~Ft4222();
@@ -55,4 +58,9 @@ public:
 
     FT4222_STATUS
     i2cMemRead(uint16_t devAddress, uint16_t memAddress, uint8_t *pData, uint16_t size);
+
+    const FT_DEVICE_LIST_INFO_NODE &getDeviceInfo(DWORD index) const {
+        if (index >= m_devices.size()) throw std::out_of_range("Invalid device index");
+        return m_devices[index].info;
+    }
 };

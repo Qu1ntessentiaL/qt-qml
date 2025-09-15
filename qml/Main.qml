@@ -6,49 +6,49 @@ ApplicationWindow {
     visible: true
     width: 800
     height: 480
-    title: "COM-port demo"
+    title: "I2C Demo"
 
-    SerialManager {
-        id: serial
+    Ft4222Wrapper {
+        id: ft
     }
 
     Column {
-        anchors.centerIn: parent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.margins: 10
         spacing: 10
 
-        ComboBox {
-            id: portSelector
-            model: serial.ports
-            onCurrentTextChanged: serial.portName = currentText
-        }
-
+        // Подключение/отключение устройства
         Button {
-            id: openButton
-            text: serial.isOpen ? "Port Open" : "Open Port"
+            text: ft.isConnected ? "Disconnect" : "Connect"
             background: Rectangle {
-                color: serial.isOpen ? "green" : "red"
+                color: ft.isConnected ? "green" : "red"
                 radius: 6
             }
             onClicked: {
-                if (serial.isOpen)
-                    serial.closePort()
-                else
-                    serial.openPort()
+                if (ft.isConnected) {
+                    ft.disconnectDevice()
+                    logArea.text = ""  // очищаем логи
+                } else {
+                    logArea.text = ""  // очищаем перед новым соединением
+                    ft.connectDevice()
+                }
             }
         }
 
-        TextArea {
-            id: logArea
-            width: 350
-            height: 150
-            readOnly: true
-            text: serial.receivedData
+        // Сканирование I2C шины
+        Button {
+            text: "Scan I2C Bus"
+            enabled: ft.isConnected
+            onClicked: ft.scanDevices()
         }
 
+        // Ввод slave-адреса
         TextField {
             id: addressField
             width: 120
             placeholderText: "Slave address"
+            text: ft.slaveAddress
 
             validator: RegularExpressionValidator {
                 regularExpression: /0x[0-9A-Fa-f]{0,2}/
@@ -61,30 +61,40 @@ ApplicationWindow {
                     text = "0x"
             }
 
-            onTextChanged: {
-                if (!text.startsWith("0x")) {
-                    text = "0x"
-                    addressField.cursorPosition = text.length
-                }
-            }
+            onTextChanged: ft.slaveAddress = text
         }
 
-        Row {
-            spacing: 5
-            TextField {
-                id: inputField
-                width: 200
-                placeholderText: "Send text"
-            }
-            Button {
-                text: "Send"
-                onClicked: serial.sendData(inputField.text)
+        // Чтение 4 байт
+        Button {
+            text: "Read 4 bytes"
+            enabled: ft.isConnected
+            onClicked: {
+                let addr = parseInt(ft.slaveAddress)
+                let data = ft.readMem(addr, 0, 4)
+                logArea.append("Read: " + data + "\n")
             }
         }
     }
 
+    // TextArea для логов
+    TextArea {
+        id: logArea
+        width: parent.width - 20
+        height: 200
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.margins: 10
+        readOnly: true
+        wrapMode: Text.Wrap
+    }
+
     Connections {
-        target: serial
-        onErrorOccurred: console.log("Serial Error: " + msg)
+        target: ft
+        onLogMessage: {
+            logArea.append(msg + "\n")
+        }
+        onErrorOccurred: {
+            logArea.append("FT4222 Error: " + msg + "\n")
+        }
     }
 }
