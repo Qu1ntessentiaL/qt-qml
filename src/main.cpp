@@ -3,6 +3,7 @@
 #include <QQmlContext>
 #include "SerialManager.h"
 #include "ft4222_wrapper.h"
+#include "si7210.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);

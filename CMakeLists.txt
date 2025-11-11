@@ -19,6 +19,7 @@ qt_add_executable(appqt-qml
         src/SerialManager.cpp
         src/ft4222/ft4222.cpp
         src/ft4222/ft4222_wrapper.cpp
+        src/si7210/si7210.cpp
 )
 
 qt_add_qml_module(appqt-qml
@@ -31,6 +32,7 @@ qt_add_qml_module(appqt-qml
 include_directories(
         ${CMAKE_SOURCE_DIR}/src/
         ${CMAKE_SOURCE_DIR}/src/ft4222
+        ${CMAKE_SOURCE_DIR}/src/si7210
         ${CMAKE_SOURCE_DIR}/libs/ftd2xx/
         ${CMAKE_SOURCE_DIR}/libs/LibFT4222/inc/
 )

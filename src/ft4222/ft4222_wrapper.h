@@ -3,21 +3,22 @@
 #include <memory>
 #include <vector>
 
-#include <QObject>
-#include <QDebug>
-#include <QString>
 #include <QByteArray>
+#include <QDebug>
+#include <QObject>
+#include <QString>
 
 #include "ft4222.h"
 
 class Ft4222Wrapper : public QObject {
-Q_OBJECT
+    Q_OBJECT
     Q_PROPERTY(bool isConnected READ isConnected NOTIFY connectionChanged)
-    Q_PROPERTY(QString slaveAddress READ slaveAddress WRITE setSlaveAddress NOTIFY slaveAddressChanged)
+    Q_PROPERTY(QString slaveAddress READ slaveAddress WRITE setSlaveAddress NOTIFY
+                   slaveAddressChanged)
 
 public:
     explicit Ft4222Wrapper(QObject *parent = nullptr)
-            : QObject(parent), m_connected(false) {}
+        : QObject(parent), m_connected(false) {}
 
     // Свойства
     bool isConnected() const { return m_connected; }
@@ -25,13 +26,15 @@ public:
     QString slaveAddress() const { return m_slaveAddress; }
 
     void setSlaveAddress(const QString &addr) {
-        if (m_slaveAddress == addr) return;
+        if (m_slaveAddress == addr)
+            return;
         m_slaveAddress = addr;
         emit slaveAddressChanged();
     }
 
     Q_INVOKABLE bool connectDevice() {
-        if (m_connected) return true;
+        if (m_connected)
+            return true;
 
         try {
             m_ft4222 = std::make_unique<Ft4222>(SYS_CLK_60);
@@ -44,11 +47,12 @@ public:
             emit logMessage(QString("Found %1 device(s)").arg(count));
 
             for (DWORD i = 0; i < count; ++i) {
-                const auto &dev = m_ft4222->getDeviceInfo(i); // Нужно добавить метод getDeviceInfo в Ft4222
+                const auto &dev = m_ft4222->getDeviceInfo(
+                    i); // Нужно добавить метод getDeviceInfo в Ft4222
                 QString info = QString("Device %1:\n  Serial: %2\n  Description: %3\n")
-                        .arg(i)
-                        .arg(dev.SerialNumber)
-                        .arg(dev.Description);
+                                   .arg(i)
+                                   .arg(dev.SerialNumber)
+                                   .arg(dev.Description);
                 emit logMessage(info);
             }
 
@@ -65,7 +69,7 @@ public:
     // Отключение устройства
     Q_INVOKABLE void disconnectDevice() {
         if (m_ft4222) {
-            m_ft4222.reset();  // безопасный вызов деструктора
+            m_ft4222.reset(); // безопасный вызов деструктора
             m_connected = false;
             emit connectionChanged();
         }
@@ -74,7 +78,8 @@ public:
     // Чтение памяти
     Q_INVOKABLE QByteArray readMem(int devAddr, int memAddr, int size) {
         QByteArray buffer(size, Qt::Uninitialized);
-        if (!m_ft4222) return QByteArray();
+        if (!m_ft4222)
+            return QByteArray();
         try {
             m_ft4222->i2cMemRead(devAddr, memAddr,
                                  reinterpret_cast<uint8_t *>(buffer.data()), size);
@@ -87,7 +92,8 @@ public:
 
     // Запись памяти
     Q_INVOKABLE void writeMem(int devAddr, int memAddr, QByteArray data) {
-        if (!m_ft4222) return;
+        if (!m_ft4222)
+            return;
         try {
             m_ft4222->i2cMemWrite(devAddr, memAddr,
                                   reinterpret_cast<const uint8_t *>(data.constData()),
