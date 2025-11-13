@@ -13,6 +13,7 @@ Q_OBJECT
     Q_PROPERTY(QString receivedData READ receivedData NOTIFY receivedDataChanged)
     Q_PROPERTY(QStringList ports READ ports NOTIFY portsChanged)
     Q_PROPERTY(bool isOpen READ isOpen NOTIFY isOpenChanged)
+    Q_PROPERTY(int baudRate READ baudRate WRITE setBaudRate NOTIFY baudRateChanged)
 
 public:
     explicit SerialManager(QObject *parent = nullptr);
@@ -24,6 +25,10 @@ public:
     QString receivedData() const { return m_receivedData; }
 
     QStringList ports() const { return m_ports; }
+
+    int baudRate() const { return m_baudRate; }
+
+    void setBaudRate(int rate);
 
     Q_INVOKABLE void openPort();
 
@@ -45,6 +50,8 @@ signals:
 
     void isOpenChanged();
 
+    void baudRateChanged();
+
 private slots:
 
     void handleReadyRead();
@@ -57,4 +64,5 @@ private:
     QString m_receivedData;
     QStringList m_ports;
     QTimer m_timer;
+    int m_baudRate = 115200;
 };
