@@ -15,6 +15,13 @@ void SerialManager::setPortName(const QString &name) {
     }
 }
 
+void SerialManager::setBaudRate(int rate) {
+    if (m_baudRate != rate) {
+        m_baudRate = rate;
+        emit baudRateChanged();
+    }
+}
+
 void SerialManager::updatePorts() {
     QStringList currentPorts;
     for (const QSerialPortInfo &info: QSerialPortInfo::availablePorts())
@@ -31,7 +38,7 @@ void SerialManager::openPort() {
         m_serial.close();
 
     m_serial.setPortName(m_portName);
-    m_serial.setBaudRate(QSerialPort::Baud115200);
+    m_serial.setBaudRate(m_baudRate);
     m_serial.setDataBits(QSerialPort::Data8);
     m_serial.setParity(QSerialPort::NoParity);
     m_serial.setStopBits(QSerialPort::OneStop);
