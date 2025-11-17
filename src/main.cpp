@@ -1,12 +1,14 @@
+//#include <QQuickStyle>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include "SerialManager.h"
 #include "ft4222_wrapper.h"
-#include "si7210.h"
 
 int main(int argc, char *argv[]) {
+    qDebug() << "Hello from Qt!";
     QGuiApplication app(argc, argv);
+    //QQuickStyle::setStyle("Fusion");
 
     // Регистрируем классы как QML-типы
     qmlRegisterType<SerialManager>("MyLib", 1, 0, "SerialManager");

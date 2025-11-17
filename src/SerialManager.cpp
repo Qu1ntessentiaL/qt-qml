@@ -1,8 +1,24 @@
 #include "SerialManager.h"
 
+namespace {
+constexpr int MAX_BUFFER_SIZE = 4096;
+}
+
 SerialManager::SerialManager(QObject *parent) : QObject(parent) {
     connect(&m_serial, &QSerialPort::readyRead, this, &SerialManager::handleReadyRead);
     connect(&m_timer, &QTimer::timeout, this, &SerialManager::updatePorts);
+    connect(&m_serial,
+            &QSerialPort::errorOccurred,
+            this,
+            [this](QSerialPort::SerialPortError error) {
+                if (error == QSerialPort::NoError) {
+                    return;
+                }
+                emit errorOccurred(m_serial.errorString());
+                if (m_serial.isOpen() && error == QSerialPort::ResourceError) {
+                    closePort();
+                }
+            });
     m_timer.start(1000);
     updatePorts();
 }
@@ -36,28 +52,41 @@ void SerialManager::openPort() {
     m_serial.setStopBits(QSerialPort::OneStop);
     m_serial.setFlowControl(QSerialPort::NoFlowControl);
 
-    if (!m_serial.open(QIODevice::ReadWrite)) {
+    if (m_serial.open(QIODevice::ReadWrite)) {
+        emit isOpenChanged();
+    } else {
         emit errorOccurred("Cannot open port: " + m_serial.errorString());
     }
-
-    emit isOpenChanged();
 }
 
 void SerialManager::closePort() {
-    if (m_serial.isOpen())
+    if (m_serial.isOpen()) {
         m_serial.close();
-
-    emit isOpenChanged();
+        emit isOpenChanged();
+    }
 }
 
 void SerialManager::sendData(const QString &data) {
     if (m_serial.isOpen()) {
-        m_serial.write(data.toUtf8());
+        const QByteArray payload = data.toUtf8();
+        const qint64 bytesWritten = m_serial.write(payload);
+        if (bytesWritten == -1) {
+            emit errorOccurred("Failed to write data: " + m_serial.errorString());
+        }
+    } else {
+        emit errorOccurred("Port is not open");
     }
 }
 
 void SerialManager::handleReadyRead() {
-    QByteArray data = m_serial.readAll();
-    m_receivedData = QString::fromUtf8(data);
+    const QByteArray data = m_serial.readAll();
+    if (data.isEmpty()) {
+        return;
+    }
+
+    m_receivedData += QString::fromUtf8(data);
+    if (m_receivedData.size() > MAX_BUFFER_SIZE) {
+        m_receivedData = m_receivedData.right(MAX_BUFFER_SIZE);
+    }
     emit receivedDataChanged();
 }

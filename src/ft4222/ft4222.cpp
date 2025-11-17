@@ -1,41 +1,43 @@
 #include "ft4222.h"
 
-using namespace std;
+#include <iostream>
+#include <limits>
+#include <cstring>
 
-Ft4222::Ft4222(FT4222_ClockRate clock) : m_version{0, 0}, m_clock(clock) {
-    m_devCnt = listFtDevices();
-    if (m_devCnt > 0) {
-        setClock(m_clock);
-    } else {
-        throw std::runtime_error("No FTDI devices found!");
-    }
+Ft4222::Ft4222(FT4222_ClockRate clock)
+    : m_version{0, 0},
+      m_clock(clock),
+      m_devices{},
+      m_activeIndex((std::numeric_limits<std::size_t>::max)()),
+      m_hasActiveDevice(false),
+      m_registerAddressWidth(1) {
+    std::cout << "Ft4222 created, waiting for device initialization..." << std::endl;
 }
 
 Ft4222::~Ft4222() {
-    if (!m_devices.empty()) {
-        FT_HANDLE ftHandle = m_devices.front().info.ftHandle;
-        bool *isInit = &m_devices.front().isInitialized;
-        if (*isInit) {
-            FT4222_UnInitialize(ftHandle);
-            FT_Close(ftHandle);
-        }
+    try {
+        shutdown();
+    } catch (...) {
+        // Деструктор не должен выбрасывать исключения
     }
 }
 
 DWORD Ft4222::listFtDevices() {
-    FT_STATUS ftStatus;
+    FT_STATUS ftStatus = FT_OK;
     DWORD numDevices = 0;
 
+    shutdown();
     ftStatus = FT_CreateDeviceInfoList(&numDevices);
     checkStatus(ftStatus, "Failed to create device info list!");
 
     std::cout << "Found " << numDevices << " FTDI devices." << std::endl;
 
-    m_devices.clear(); // Очищаем вектор перед добавлением новых устройств
+    m_devices.clear();
+    m_devices.reserve(numDevices);
 
     for (DWORD i = 0; i < numDevices; ++i) {
-        ft_device_t dev;
-        memset(&dev.info, 0, sizeof(dev.info));
+        ft_device_t dev{};
+        std::memset(&dev.info, 0, sizeof(dev.info));
         dev.isInitialized = false;
 
         ftStatus = FT_GetDeviceInfoDetail(i,
@@ -48,7 +50,8 @@ DWORD Ft4222::listFtDevices() {
                                           &dev.info.ftHandle);
 
         if (ftStatus == FT_OK) {
-            m_devices.push_back(dev); // Добавляем устройство в вектор
+            dev.info.ftHandle = nullptr;
+            m_devices.push_back(dev);
 
             std::ostringstream oss;
             oss << "Device " << i << ":\n"
@@ -57,8 +60,7 @@ DWORD Ft4222::listFtDevices() {
                 << "  ID: 0x" << std::hex << std::setw(8) << std::setfill('0') << dev.info.ID << "\n"
                 << "  LocId: 0x" << std::hex << std::setw(8) << std::setfill('0') << dev.info.LocId << "\n"
                 << "  SerialNumber: " << dev.info.SerialNumber << "\n"
-                << "  Description: " << dev.info.Description << "\n"
-                << "  ftHandle: " << dev.info.ftHandle << "\n";
+                << "  Description: " << dev.info.Description << "\n";
 
             std::cout << oss.str();
         } else {
@@ -69,17 +71,104 @@ DWORD Ft4222::listFtDevices() {
 }
 
 FT4222_STATUS Ft4222::setClock(FT4222_ClockRate clock) {
-    if (m_devices.empty()) {
-        throw std::runtime_error("No devices available!");
+    if (!m_hasActiveDevice) {
+        throw std::runtime_error("No initialized FT4222 device to set clock on!");
     }
-    return FT4222_SetClock(m_devices.front().info.ftHandle, clock);
+    m_clock = clock;
+    return FT4222_SetClock(activeHandle(), clock);
 }
 
 FT4222_STATUS Ft4222::getClock() {
-    if (m_devices.empty()) {
-        throw std::runtime_error("No devices available!");
+    if (!m_hasActiveDevice) {
+        throw std::runtime_error("No initialized FT4222 device to query clock from!");
     }
-    return FT4222_GetClock(m_devices.front().info.ftHandle, &m_clock);
+    return FT4222_GetClock(activeHandle(), &m_clock);
+}
+
+void Ft4222::initializeDevice(std::size_t index, uint32_t clockRate) {
+    if (index >= m_devices.size()) {
+        throw std::out_of_range("Invalid device index");
+    }
+
+    auto &device = m_devices[index];
+    if (device.isInitialized) {
+        throw std::runtime_error("Device is already initialized!");
+    }
+
+    FT_HANDLE ftHandle = nullptr;
+    const auto locationId = device.info.LocId;
+
+    FT_STATUS ftStatus = FT_OpenEx(reinterpret_cast<PVOID>(static_cast<uintptr_t>(locationId)),
+                                   FT_OPEN_BY_LOCATION,
+                                   &ftHandle);
+    checkStatus(ftStatus, "Failed to open FT4222 device!");
+
+    if (ftHandle == nullptr) {
+        throw std::runtime_error("Failed to open device: ftHandle is NULL!");
+    }
+
+    device.info.ftHandle = ftHandle;
+
+    FT4222_STATUS ft4222Status = FT4222_I2CMaster_Init(ftHandle, clockRate);
+    checkStatus(ft4222Status, "Failed to initialize I2C master!");
+
+    ft4222Status = FT4222_GetVersion(ftHandle, &m_version);
+    checkStatus(ft4222Status, "Failed to get FT4222 version!");
+
+    device.isInitialized = true;
+    m_activeIndex = index;
+    m_hasActiveDevice = true;
+}
+
+void Ft4222::shutdownDevice(std::size_t index) {
+    if (index >= m_devices.size()) {
+        return;
+    }
+
+    auto &device = m_devices[index];
+    if (device.isInitialized && device.info.ftHandle != nullptr) {
+        if (FT4222_UnInitialize(device.info.ftHandle) != FT4222_OK) {
+            std::cerr << "Failed to uninitialize FT4222 device at index " << index << std::endl;
+        }
+        if (FT_Close(device.info.ftHandle) != FT_OK) {
+            std::cerr << "Failed to close FT4222 device at index " << index << std::endl;
+        }
+    }
+
+    device.info.ftHandle = nullptr;
+    device.isInitialized = false;
+
+    if (m_hasActiveDevice && m_activeIndex == index) {
+        m_hasActiveDevice = false;
+        m_activeIndex = (std::numeric_limits<std::size_t>::max)();
+    }
+}
+
+void Ft4222::shutdown() {
+    for (std::size_t i = 0; i < m_devices.size(); ++i) {
+        shutdownDevice(i);
+    }
+}
+
+std::size_t Ft4222::activeDeviceIndex() const {
+    if (!m_hasActiveDevice) {
+        throw std::runtime_error("No active device");
+    }
+    return m_activeIndex;
+}
+
+void Ft4222::setRegisterAddressWidth(uint8_t width) {
+    if (width == 0 || width > 2) {
+        throw std::invalid_argument("Register address width must be 1 or 2 bytes");
+    }
+    m_registerAddressWidth = width;
+}
+
+FT_HANDLE Ft4222::activeHandle() const {
+    if (!m_hasActiveDevice) {
+        throw std::runtime_error("No active FT4222 handle");
+    }
+    return m_devices.at(m_activeIndex).info.ftHandle;
 }
 
 void Ft4222::checkStatus(FT_STATUS status, const std::string &errorMessage) {
@@ -228,68 +317,48 @@ void Ft4222::checkStatus(FT4222_STATUS status, const std::string &errorMessage) 
     }
 }
 
-void Ft4222::i2cMasterInit(uint32_t clockRate) {
-    if (m_devices.empty()) {
-        throw std::runtime_error("No devices available!");
+const FT_DEVICE_LIST_INFO_NODE &Ft4222::getDeviceInfo(std::size_t index) const {
+    if (index >= m_devices.size()) {
+        throw std::out_of_range("Invalid device index");
     }
-
-    auto it = findDevice();
-    if (it != m_devices.end()) {
-        m_index = std::distance(m_devices.begin(), it);
-        std::cout << "Device found at index: " << m_index << std::endl;
-    }
-
-    FT_HANDLE ftHandle = m_devices.at(m_index).info.ftHandle;
-    bool *isInit = &m_devices.at(m_index).isInitialized;
-    uint32_t locationId = m_devices.at(m_index).info.LocId;
-
-    if (*isInit) {
-        throw std::runtime_error("Device is already initialized!");
-    }
-
-    FT_STATUS ftStatus = FT_OpenEx(reinterpret_cast<PVOID>(static_cast<uintptr_t>(locationId)),
-                                   FT_OPEN_BY_LOCATION,
-                                   &ftHandle);
-    checkStatus(ftStatus, "Failed to open FT4222 device!");
-
-    if (ftHandle == nullptr) {
-        throw std::runtime_error("Failed to open device: ftHandle is NULL!");
-    }
-
-    // Обновляем ftHandle в структуре устройства
-    m_devices.at(m_index).info.ftHandle = ftHandle;
-
-    FT4222_STATUS ft4222Status = FT4222_I2CMaster_Init(ftHandle, clockRate);
-    checkStatus(ft4222Status, "Failed to initialize I2C master!");
-
-    ft4222Status = FT4222_GetVersion(ftHandle, &m_version);
-    checkStatus(ft4222Status, "Failed to get FT4222 version!");
-
-    *isInit = true;
+    return m_devices[index].info;
 }
 
-FT4222_STATUS Ft4222::i2cMemWrite(uint16_t devAddress, uint16_t memAddress, const uint8_t *pData, uint16_t size) {
-    if (m_devices.empty()) {
+FT4222_STATUS Ft4222::i2cMemWrite(uint16_t devAddress,
+                                  uint16_t memAddress,
+                                  const uint8_t *pData,
+                                  uint16_t size,
+                                  uint8_t addressWidth) {
+    if (!m_hasActiveDevice) {
         return FT4222_DEVICE_NOT_FOUND;
     }
 
-    FT_HANDLE ftHandle = m_devices.front().info.ftHandle;
-    bool isInit = m_devices.front().isInitialized;
-
-    if (!isInit) {
-        return FT4222_DEVICE_NOT_FOUND;
+    const uint8_t addrWidth = addressWidth == 0 ? m_registerAddressWidth : addressWidth;
+    if (addrWidth == 0 || addrWidth > 2) {
+        return FT4222_INVALID_ARGS;
     }
 
     std::vector<uint8_t> buffer;
-    buffer.push_back(static_cast<uint8_t>(memAddress));
+    buffer.reserve(addrWidth + size);
+
+    for (int shift = static_cast<int>(addrWidth); shift > 0; --shift) {
+        const uint8_t byte = static_cast<uint8_t>((memAddress >> ((shift - 1) * 8)) & 0xFF);
+        buffer.push_back(byte);
+    }
+
     buffer.insert(buffer.end(), pData, pData + size);
 
-    uint16_t sizeTransferred;
-    FT4222_STATUS ftStatus = FT4222_I2CMaster_Write(ftHandle,
+    uint16_t sizeTransferred = 0;
+    const auto handle = activeHandle();
+    FT4222_STATUS ftStatus = FT4222_I2CMaster_Write(handle,
                                                     devAddress,
                                                     buffer.data(),
-                                                    buffer.size(),
+                                                    static_cast<uint16_t>(buffer.size()),
                                                     &sizeTransferred);
+
+    if (ftStatus != FT4222_OK) {
+        return ftStatus;
+    }
 
     if (sizeTransferred != buffer.size()) {
         return FT4222_IO_ERROR;
@@ -298,38 +367,56 @@ FT4222_STATUS Ft4222::i2cMemWrite(uint16_t devAddress, uint16_t memAddress, cons
     return ftStatus;
 }
 
-FT4222_STATUS Ft4222::i2cMemRead(uint16_t devAddress, uint16_t memAddress, uint8_t *pData, uint16_t size) {
-    if (m_devices.empty()) {
+FT4222_STATUS Ft4222::i2cMemRead(uint16_t devAddress,
+                                 uint16_t memAddress,
+                                 uint8_t *pData,
+                                 uint16_t size,
+                                 uint8_t addressWidth) {
+    if (!m_hasActiveDevice) {
         return FT4222_DEVICE_NOT_FOUND;
     }
 
-    FT_HANDLE ftHandle = m_devices.front().info.ftHandle;
-    bool isInit = m_devices.front().isInitialized;
-
-    if (!isInit) {
-        return FT4222_DEVICE_NOT_FOUND;
+    const uint8_t addrWidth = addressWidth == 0 ? m_registerAddressWidth : addressWidth;
+    if (addrWidth == 0 || addrWidth > 2) {
+        return FT4222_INVALID_ARGS;
     }
 
-    auto regAddr = static_cast<uint8_t>(memAddress);
-    uint16_t sizeTransferred;
-    FT4222_STATUS ftStatus = FT4222_I2CMaster_WriteEx(ftHandle,
+    std::vector<uint8_t> addressBytes;
+    addressBytes.reserve(addrWidth);
+    for (int shift = static_cast<int>(addrWidth); shift > 0; --shift) {
+        const uint8_t byte = static_cast<uint8_t>((memAddress >> ((shift - 1) * 8)) & 0xFF);
+        addressBytes.push_back(byte);
+    }
+
+    uint16_t transferred = 0;
+    const auto handle = activeHandle();
+
+    FT4222_STATUS ftStatus = FT4222_I2CMaster_WriteEx(handle,
                                                       devAddress,
                                                       0,
-                                                      &regAddr,
-                                                      1,
-                                                      &sizeTransferred);
+                                                      addressBytes.data(),
+                                                      static_cast<uint16_t>(addressBytes.size()),
+                                                      &transferred);
     if (ftStatus != FT4222_OK) {
         return ftStatus;
     }
 
-    ftStatus = FT4222_I2CMaster_ReadEx(ftHandle,
+    if (transferred != addressBytes.size()) {
+        return FT4222_IO_ERROR;
+    }
+
+    ftStatus = FT4222_I2CMaster_ReadEx(handle,
                                        devAddress,
                                        0,
                                        pData,
                                        size,
-                                       &sizeTransferred);
+                                       &transferred);
 
-    if (sizeTransferred != size) {
+    if (ftStatus != FT4222_OK) {
+        return ftStatus;
+    }
+
+    if (transferred != size) {
         return FT4222_IO_ERROR;
     }
 

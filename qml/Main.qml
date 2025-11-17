@@ -21,10 +21,12 @@ ApplicationWindow {
         // Подключение/отключение устройства
         Button {
             text: ft.isConnected ? "Disconnect" : "Connect"
+            /*
             background: Rectangle {
                 color: ft.isConnected ? "green" : "red"
                 radius: 6
             }
+            */
             onClicked: {
                 if (ft.isConnected) {
                     ft.disconnectDevice()
@@ -39,7 +41,6 @@ ApplicationWindow {
         // Сканирование I2C шины
         Button {
             text: "Scan I2C Bus"
-            enabled: ft.isConnected
             onClicked: ft.scanDevices()
         }
 
@@ -64,13 +65,30 @@ ApplicationWindow {
             onTextChanged: ft.slaveAddress = text
         }
 
+        ComboBox {
+            id: addressWidthSelector
+            width: 160
+            model: ["Register width: 1 byte", "Register width: 2 bytes"]
+            onCurrentIndexChanged: {
+                ft.registerAddressWidth = currentIndex + 1
+            }
+            Component.onCompleted: currentIndex = ft.registerAddressWidth - 1
+        }
+
         // Чтение 4 байт
         Button {
             text: "Read 4 bytes"
             enabled: ft.isConnected
             onClicked: {
                 let addr = parseInt(ft.slaveAddress)
+                if (isNaN(addr)) {
+                    logArea.append("Invalid slave address\n")
+                    return
+                }
                 let data = ft.readMem(addr, 0, 4)
+                if (data.length === 0) {
+                    return
+                }
                 logArea.append("Read: " + data + "\n")
             }
         }
@@ -90,11 +108,17 @@ ApplicationWindow {
 
     Connections {
         target: ft
-        onLogMessage: {
+
+        function onLogMessage(msg) {
             logArea.append(msg + "\n")
         }
-        onErrorOccurred: {
+
+        function onErrorOccurred(msg) {
             logArea.append("FT4222 Error: " + msg + "\n")
+        }
+
+        function onRegisterAddressWidthChanged() {
+            addressWidthSelector.currentIndex = ft.registerAddressWidth - 1
         }
     }
 }
