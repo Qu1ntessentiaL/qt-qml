@@ -5,8 +5,11 @@
 #include "SerialManager.h"
 #include "ft4222_wrapper.h"
 
+#define GUI 1
+
+#if (GUI == 1)
+
 int main(int argc, char *argv[]) {
-    qDebug() << "Hello from Qt!";
     QGuiApplication app(argc, argv);
     //QQuickStyle::setStyle("Fusion");
 
@@ -28,3 +31,13 @@ int main(int argc, char *argv[]) {
 
     return app.exec();
 }
+
+#elif (GUI == 0)
+
+int main(int argc, char *argv[]) {
+    Ft4222 dev;
+    return 0;
+}
+
+#endif
+
